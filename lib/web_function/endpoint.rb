@@ -27,18 +27,19 @@ module WebFunction
           if result.length == 3 && result[0].is_a?(String) && result[1].is_a?(String)
             code = result[0]
             message = result[1]
+            details = result[2]
 
-            raise WebFunction::Error, "#{message} [#{code.downcase}]"
+            raise WebFunction::Error.new("#{message} [#{code}]", code: code, details: details)
           end
         when String
-          raise WebFunction::Error, result
+          raise WebFunction::Error.new(result)
         else
-          raise WebFunction::Error, "Bad request"
+          raise WebFunction::Error.new("Bad request")
         end
       end
 
       if response.status != 200
-        raise WebFunction::Error, "Something went wrong, got unexpected status code [#{response.status}]"
+        raise WebFunction::Error.new("Something went wrong, unexpected status code [#{response.status}]")
       end
 
       result

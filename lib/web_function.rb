@@ -12,5 +12,13 @@ require_relative "web_function/argument"
 require_relative "web_function/documentation"
 
 module WebFunction
-  class Error < StandardError; end
+  class Error < StandardError
+    attr_reader :code, :details
+
+    def initialize(message = nil, code: nil, details: nil)
+      super(message)
+      @code = code
+      @details = details
+    end
+  end
 end
