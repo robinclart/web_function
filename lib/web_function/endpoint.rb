@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 module WebFunction
   class Endpoint
     def initialize(endpoint)
       @endpoint = endpoint
     end
 
-    def self.invoke(url, bearer_auth: nil, args: {}, options: {})
+    def self.invoke(url, bearer_auth: nil, args: {})
       headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",

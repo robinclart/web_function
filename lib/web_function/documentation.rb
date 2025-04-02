@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module WebFunction
   class Documentation
     def initialize(package)

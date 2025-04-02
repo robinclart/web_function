@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 module WebFunction
   class Client
     def initialize(package, bearer_auth: nil)
       @package = package
-      @endpoints = Hash[package.endpoints.map { |e| [e.name.gsub("-", "_").to_sym, e] }]
+      @endpoints = package.endpoints.to_h { |e| [e.name.gsub("-", "_").to_sym, e] }
       @bearer_auth = bearer_auth
     end
 
@@ -19,16 +21,21 @@ module WebFunction
       super + @endpoints.keys
     end
 
-    def method_missing(name, *args)
-      endpoint = @endpoints[name]
+    def respond_to_missing?(method_name, include_private = false)
+      @endpoints[method_name] || super
+    end
+
+    def method_missing(method_name, *args)
+      endpoint = @endpoints[method_name]
 
       unless endpoint
         super
       end
 
       url = URI.join(@package.base_url, endpoint.name).to_s
+      args = args.first
 
-      Endpoint.invoke(url, bearer_auth: @bearer_auth, args: args.first)
+      Endpoint.invoke(url, bearer_auth: @bearer_auth, args: args)
     end
   end
 end
