@@ -32,6 +32,8 @@ module WebFunction
             details = result[2]
 
             raise WebFunction::Error.new(message, code: code, details: details)
+          else
+            raise WebFunction::Error.new("Bad request")
           end
         when String
           raise WebFunction::Error.new(result)
