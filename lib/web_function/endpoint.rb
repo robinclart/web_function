@@ -31,7 +31,7 @@ module WebFunction
             message = result[1]
             details = result[2]
 
-            raise WebFunction::Error.new("#{message} [#{code}]", code: code, details: details)
+            raise WebFunction::Error.new(message, code: code, details: details)
           end
         when String
           raise WebFunction::Error.new(result)
