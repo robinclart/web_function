@@ -33,12 +33,12 @@ module WebFunction
 
             raise WebFunction::Error.new(message, code: code, details: details)
           else
-            raise WebFunction::Error.new("Bad request")
+            raise WebFunction::Error.new("Bad request", details: result)
           end
         when String
           raise WebFunction::Error.new(result)
         else
-          raise WebFunction::Error.new("Bad request")
+          raise WebFunction::Error.new("Bad request", details: result)
         end
       end
 
