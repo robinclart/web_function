@@ -6,10 +6,6 @@ module WebFunction
       @package = package
     end
 
-    def documentation
-      Documentation.new(self)
-    end
-
     def base_url
       @package["base_url"]
     end
@@ -27,7 +23,19 @@ module WebFunction
     end
 
     def endpoints
+      unless @package["endpoints"].is_a?(Array)
+        return []
+      end
+
       @package["endpoints"].map { |endpoint| Endpoint.new(endpoint) }
+    end
+
+    def errors
+      unless @package["errors"].is_a?(Array)
+        return []
+      end
+
+      @package["errors"].map { |argument| DocumentedError.new(error) }
     end
   end
 end

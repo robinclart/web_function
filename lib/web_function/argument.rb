@@ -14,16 +14,16 @@ module WebFunction
       @argument["type"]
     end
 
+    def choices
+      @argument["choices"]
+    end
+
     def flags
       @argument["flags"]
     end
 
     def docs
       @argument["docs"]
-    end
-
-    def to_s
-      ["  - #{name} (#{type}):", docs].join(" ")
     end
   end
 end

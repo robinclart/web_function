@@ -61,12 +61,28 @@ module WebFunction
       @endpoint["flags"]
     end
 
+    def group
+      @endpoint["group"]
+    end
+
     def docs
       @endpoint["docs"]
     end
 
     def arguments
+      unless @endpoint["arguments"].is_a?(Array)
+        return []
+      end
+
       @endpoint["arguments"].map { |argument| Argument.new(argument) }
+    end
+
+    def errors
+      unless @endpoint["errors"].is_a?(Array)
+        return []
+      end
+
+      @endpoint["errors"].map { |argument| DocumentedError.new(error) }
     end
   end
 end
