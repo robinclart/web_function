@@ -82,7 +82,7 @@ module WebFunction
         return []
       end
 
-      @endpoint["errors"].map { |argument| DocumentedError.new(error) }
+      @endpoint["errors"].map { |error| DocumentedError.new(error) }
     end
   end
 end
