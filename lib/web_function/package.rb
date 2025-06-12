@@ -35,7 +35,7 @@ module WebFunction
         return []
       end
 
-      @package["errors"].map { |argument| DocumentedError.new(error) }
+      @package["errors"].map { |error| DocumentedError.new(error) }
     end
   end
 end
