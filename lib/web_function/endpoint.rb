@@ -77,6 +77,14 @@ module WebFunction
       @endpoint["arguments"].map { |argument| Argument.new(argument) }
     end
 
+    def attributes
+      unless @endpoint["attributes"].is_a?(Array)
+        return []
+      end
+
+      @endpoint["attributes"].map { |attribute| Attribute.new(attribute) }
+    end
+
     def errors
       unless @endpoint["errors"].is_a?(Array)
         return []

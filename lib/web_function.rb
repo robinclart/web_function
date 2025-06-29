@@ -9,6 +9,7 @@ require_relative "web_function/client"
 require_relative "web_function/package"
 require_relative "web_function/endpoint"
 require_relative "web_function/argument"
+require_relative "web_function/attribute"
 require_relative "web_function/documented_error"
 
 module WebFunction
