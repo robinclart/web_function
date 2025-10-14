@@ -10,6 +10,7 @@ module WebFunction
       headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
+        "User-Agent": "webfunction/#{WebFunction::VERSION}",
       }
 
       if bearer_auth
