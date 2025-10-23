@@ -44,10 +44,12 @@ module WebFunction
       end
 
       if response.status != 200
-        raise WebFunction::Error.new("Something went wrong, unexpected status code [#{response.status}]")
+        raise WebFunction::Error.new("Unexpected status code [#{response.status}]")
       end
 
       result
+    rescue JSON::ParserError => e
+      raise WebFunction::Error.new("Response cannot be parsed", details: {})
     end
 
     def name
