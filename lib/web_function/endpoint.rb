@@ -6,15 +6,27 @@ module WebFunction
       @endpoint = endpoint
     end
 
-    def self.invoke(url, bearer_auth: nil, args: {})
+    def self.invoke(url, bearer_auth: nil, args: {}, as_step: false)
       headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "webfunction/#{WebFunction::VERSION}",
       }
 
+      if args.nil?
+        args = {}
+      end
+
       if bearer_auth
         headers["Authorization"] = "Bearer #{bearer_auth}"
+      end
+
+      if as_step
+        return {
+          url: url,
+          headers: headers,
+          body: args,
+        }
       end
 
       response = Excon.post(url,

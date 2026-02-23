@@ -11,6 +11,8 @@ require_relative "web_function/endpoint"
 require_relative "web_function/argument"
 require_relative "web_function/attribute"
 require_relative "web_function/documented_error"
+require_relative "web_function/pipeline"
+require_relative "web_function/promise"
 
 module WebFunction
   class Error < StandardError
