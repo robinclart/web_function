@@ -15,6 +15,8 @@ require_relative "web_function/pipeline"
 require_relative "web_function/promise"
 
 module WebFunction
+  UnresolvedPromise = Class.new(StandardError)
+
   class Error < StandardError
     attr_reader :code, :details
 

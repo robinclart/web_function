@@ -2,44 +2,81 @@ module WebFunction
   class Promise
     def initialize(pipeline, path)
       @pipeline = pipeline
-      @path = path
+      @path = Path.new(path)
+      @value = nil
     end
 
+    class Path
+      def initialize(path)
+        @path = path
+      end
+
+      def to_s
+        @path
+      end
+
+      def to_json(*args)
+        @path.to_json(*args)
+      end
+
+      def [](key)
+        case key
+        when String, Symbol
+          mutate("#{@path}.#{key}")
+        when Integer
+          mutate("#{@path}[#{key}]")
+        else
+          raise ArgumentError
+        end
+      end
+
+      def mutate(path)
+        Path.new(path)
+      end
+    end
+
+    attr_writer :value
+
     def to_s
-      @path
+      if @value
+        @value.to_s
+      else
+        @path.to_s
+      end
     end
 
     def to_json(*args)
-      @path.to_json(*args)
-    end
-
-    def resolve
-      @pipeline.execute(returns: :last)
+      if @value
+        @value.to_json(*args)
+      else
+        @path.to_json(*args)
+      end
     end
 
     def [](key)
-      case key
-      when String
-        mutate("#{@path}[\"#{key}\"]")
-      when Integer
-        mutate("#{@path}[#{key}]")
+      if @value
+        @value[key]
       else
-        raise ArgumentError
+        @path[key]
       end
     end
 
-    def method_missing(name, *args)
-      if block_given? || args.any?
-        super
+    def value
+      unless @value
+        raise UnresolvedPromise
       end
 
-      mutate("#{@path}.#{name}")
+      @value
     end
 
-    private
+    def resolve
+      if @value
+        return @value
+      end
 
-    def mutate(path)
-      Promise.new(@pipeline, path)
+      @pipeline.execute
+
+      value
     end
   end
 end
