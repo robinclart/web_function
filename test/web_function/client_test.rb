@@ -1,0 +1,77 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class WebFunctionClientTest < Minitest::Test
+  def package_payload
+    {
+      "base_url" => "https://api.webfunction.com/",
+      "name" => "Web Function",
+      "endpoints" => [
+        { "name" => "list-items" },
+        { "name" => "other" },
+      ],
+    }
+  end
+
+  def test_from_package_endpoint_fetches_package_and_builds_client
+    meta_url = "https://registry.test/package"
+    with_http_client_returning(status: 200, body: JSON.generate(package_payload)) do
+      client = WebFunction::Client.from_package_endpoint(meta_url)
+      assert_equal "https://api.webfunction.com/", client.package.base_url
+      assert_equal "Web Function", client.package.name
+      assert_equal 2, client.package.endpoints.count
+    end
+  end
+
+  def test_from_package_endpoint_wraps_string_pipeline_so_calls_return_promises
+    with_http_client_returning(status: 200, body: JSON.generate(package_payload)) do
+      client = WebFunction::Client.from_package_endpoint("https://api.webfunction.com/", pipeline: "https://api.webfunction.com/run-pipeline")
+      promise = client.list_items
+      assert_instance_of WebFunction::Promise, promise
+    end
+  end
+
+  def test_dynamic_endpoint_invokes_joined_url_without_pipeline
+    package = WebFunction::Package.new(package_payload)
+    client = WebFunction::Client.new(package)
+
+    request = with_http_client_returning(status: 200, body: JSON.generate({ "done" => true })) do
+      out = client.list_items(q: "a")
+      assert_equal({ "done" => true }, out)
+    end
+
+    assert request
+    assert_equal "https://api.webfunction.com/list-items", request[:url]
+    assert_equal({ q: "a" }, request[:args])
+  end
+
+  def test_hyphenated_endpoint_name_maps_to_underscore_method
+    package = WebFunction::Package.new(package_payload)
+    client = WebFunction::Client.new(package)
+
+    with_http_client_returning(status: 200, body: JSON.generate({ "n" => "list-items" })) do
+      out = client.list_items
+      assert_equal "list-items", out["n"]
+    end
+  end
+
+  def test_with_pipeline_returns_promise_from_endpoint_call
+    package = WebFunction::Package.new(package_payload)
+    pipeline = WebFunction::Pipeline.new("https://api.webfunction.com/run-pipeline")
+    client = WebFunction::Client.new(package, pipeline: pipeline)
+
+    with_http_client_returning(status: 200, body: JSON.generate([{ "merged" => 1 }])) do
+      promise = client.list_items(x: 2)
+      assert_instance_of WebFunction::Promise, promise
+      assert_equal({ "merged" => 1 }, promise.resolve)
+    end
+  end
+
+  def test_unknown_endpoint_raises_no_method_error
+    package = WebFunction::Package.new("base_url" => "https://api.webfunction.com/", "endpoints" => [])
+    client = WebFunction::Client.new(package)
+
+    assert_raises(NoMethodError) { client.missing }
+  end
+end

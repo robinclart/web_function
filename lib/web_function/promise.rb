@@ -63,7 +63,7 @@ module WebFunction
 
     def value
       unless @value
-        raise UnresolvedPromise
+        raise WebFunction::UnresolvedPromiseError
       end
 
       @value

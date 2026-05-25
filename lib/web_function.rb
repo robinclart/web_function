@@ -15,15 +15,25 @@ require_relative "web_function/pipeline"
 require_relative "web_function/promise"
 
 module WebFunction
-  UnresolvedPromise = Class.new(StandardError)
-
   class Error < StandardError
     attr_reader :code, :details
 
-    def initialize(message = nil, code: nil, details: nil)
+    def initialize(message = nil, code: self.class.name, details: nil)
       super(message)
       @code = code
       @details = details
     end
+  end
+
+  class UnresolvedPromiseError < Error
+  end
+
+  class UnexpectedStatusCodeError < Error
+  end
+
+  class JsonParseError < Error
+  end
+
+  class BadRequestError < Error
   end
 end

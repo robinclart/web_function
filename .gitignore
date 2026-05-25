@@ -6,3 +6,6 @@
 /pkg/
 /spec/reports/
 /tmp/
+
+# Cursor agent sandbox incorrectly spawns `bin/zsh` (relative); keep symlink local only
+/bin/zsh
