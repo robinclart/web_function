@@ -10,7 +10,7 @@ module WebFunction
   #   client = WebFunction::Client.from_package_endpoint("https://api.webfunction.com/package")
   #   client.list_items(a: "b") # => { "c" => "d" }
   #
-  class Client < BasicObject
+  class Client
     def initialize(package, bearer_auth: nil, pipeline: nil)
       @package = package
       @endpoints = package.endpoints.to_h { |e| [e.name.gsub("-", "_").to_sym, e] }
@@ -37,6 +37,8 @@ module WebFunction
 
       if pipeline_url.is_a?(::String)
         pipeline = ::WebFunction::Pipeline.new(pipeline_url)
+      elsif pipeline.is_a?(::String)
+        pipeline = ::WebFunction::Pipeline.new(pipeline)
       end
 
       new(package, bearer_auth: bearer_auth, pipeline: pipeline)
@@ -57,7 +59,9 @@ module WebFunction
         super
       end
 
-      url = ::URI.join(@package.base_url, endpoint.name).to_s
+      base_url = @package.base_url
+      base_url += "/" unless base_url.end_with?("/")
+      url = ::URI.join(base_url, endpoint.name).to_s
       args = args.first
 
       if @pipeline
