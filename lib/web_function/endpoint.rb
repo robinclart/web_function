@@ -38,11 +38,20 @@ module WebFunction
       #
       def http_client
         @http_client ||= proc do |url, headers, body|
-          response = Excon.post(url,
-            headers: headers,
-            body: body,
-          )
-          [response.status, response.body]
+
+          unless body.is_a?(String)
+            body = JSON.generate(body)
+          end
+
+          response = Excon.post(url, headers: headers, body: body)
+          encoding = response.headers["Content-Encoding"] || response.headers["content-encoding"]
+          res_body = response.body
+
+          if encoding == "br" && defined?(::Brotli)
+            res_body = ::Brotli.inflate(res_body)
+          end
+
+          [response.status, res_body]
         end
       end
 
@@ -76,9 +85,10 @@ module WebFunction
 
       def step(url, bearer_auth: nil, args: {})
         headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "webfunction/#{WebFunction::VERSION}",
+          "Content-Type" => "application/json",
+          "Accept" => "application/json",
+          "User-Agent" => "webfunction/#{WebFunction::VERSION}",
+          "Accept-Encoding" => defined?(::Brotli) ? "gzip, deflate, br" : "gzip, deflate"
         }
 
         if args.nil?
@@ -97,24 +107,12 @@ module WebFunction
       end
 
       def invoke(url, bearer_auth: nil, args: {})
-        headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "webfunction/#{WebFunction::VERSION}",
-        }
-
-        if args.nil?
-          args = {}
-        end
-
-        if bearer_auth
-          headers["Authorization"] = "Bearer #{bearer_auth}"
-        end
-
-        status, body = http_client.call(url, headers, JSON.generate(args))
+        step = self.step(url, bearer_auth: bearer_auth, args: args)
+        status, body = http_client.call(url, step[:headers], step[:body])
 
         unless [200, 400].include?(status)
           raise WebFunction::UnexpectedStatusCodeError.new("Unexpected status code (#{status})",
+            code: "UNEXPECTED_STATUS_CODE",
             details: {
               status_code: status,
               raw_body: body,
@@ -126,6 +124,7 @@ module WebFunction
           result = JSON.parse(body)
         rescue JSON::ParserError => e
           raise WebFunction::JsonParseError.new(e.message,
+            code: "JSON_PARSE_ERROR",
             details: {
               status_code: status,
               raw_body: body,
@@ -135,14 +134,18 @@ module WebFunction
         end
 
         if status == 400
-          code = "BAD_REQUEST"
-          message = "Bad request"
-          details = { body: result }
-
-          if result.is_a?(Array) && result.length == 3 && result[0].is_a?(String) && result[1].is_a?(String)
+          if result.is_a?(String)
+            message = result
+            code = "BAD_REQUEST"
+            details = nil
+          elsif result.is_a?(Array) && result.length == 3 && result[0].is_a?(String) && result[1].is_a?(String)
             code = result[0]
             message = result[1]
             details = result[2]
+          else
+            code = "BAD_REQUEST"
+            message = "Bad request"
+            details = { body: result }
           end
 
           raise WebFunction::BadRequestError.new(message, code: code, details: details)
