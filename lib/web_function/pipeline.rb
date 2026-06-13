@@ -1,4 +1,14 @@
+# frozen_string_literal: true
+
 module WebFunction
+  # A pipeline is a sequence of steps that are executed in order.
+  #
+  # @example
+  #   pipeline = WebFunction::Pipeline.new("https://pipe.example/exec")
+  #   pipeline.add_step({ url: "https://a", headers: {}, body: {} })
+  #   pipeline.add_step({ url: "https://b", headers: {}, body: {} })
+  #   pipeline.execute(returns: :all) # => [{ "a" => 1 }, { "b" => 2 }]
+  #
   class Pipeline
     def initialize(url)
       @url = url
@@ -6,6 +16,12 @@ module WebFunction
       @promises = []
     end
 
+    # Adds a step to the pipeline.
+    #
+    # @param step [Hash] The step to add
+    #
+    # @return [Promise] A new Promise instance
+    #
     def add_step(step)
       n = @promises.count
       promise = Promise.new(self, "$[#{n}]")
@@ -16,13 +32,20 @@ module WebFunction
       promise
     end
 
+    # Executes the pipeline.
+    #
+    # @param returns [String, Symbol] The return type or a JSONPath expression to return a specific value.
+    #
+    # @return [Object] The response returned by the pipeline.
+    #
     def execute(returns: :all)
       case returns
       when :all
-        responses = Endpoint.invoke(@url, args: {
+        responses = Request.execute(@url, args: {
           steps: @steps,
           returns: "$",
-        })
+        },
+        )
 
         responses.each_with_index do |response, index|
           @promises[index].value = response
@@ -32,10 +55,11 @@ module WebFunction
 
         responses
       when :last
-        response = Endpoint.invoke(@url, args: {
+        response = Request.execute(@url, args: {
           steps: @steps,
           returns: "$[-1:]",
-        })
+        },
+        )
 
         @promises.last.value = response
 
@@ -43,10 +67,11 @@ module WebFunction
 
         response
       else
-        response = Endpoint.invoke(@url, args: {
+        response = Request.execute(@url, args: {
           steps: @steps,
           returns: returns,
-        })
+        },
+        )
 
         reset!
 
@@ -54,6 +79,10 @@ module WebFunction
       end
     end
 
+    # Resets the pipeline.
+    #
+    # @return [void]
+    #
     def reset!
       @steps = []
       @promises = []

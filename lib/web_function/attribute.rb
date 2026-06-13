@@ -1,100 +1,124 @@
 # frozen_string_literal: true
 
 module WebFunction
-  # # Attribute
+  # Attributes define output fields that may be produced and returned by a Web Function {Endpoint} when the type of the 
+  # return is `object`.
   #
-  # An Attribute defines an output field that may be produced and returned by a
-  # Web Function endpoint.
-  #
-  # See the [attributes section][0] on the Web Function website for more
-  # details about attribute definitions, recognized keys, and usage.
+  # See the [attributes section][0] on the Web Function website for more details about attribute definitions, 
+  # recognized keys, and usage.
   #
   # [0]: https://webfunction.org/package#attributes
   #
   class Attribute
-    def initialize(attribute)
-      @attribute = attribute
+    include Flaggable
+
+    def initialize(name:, type:, hint: nil, values: [], flags: [], docs: nil)
+      @name = name
+      @type = type
+      @hint = hint
+      @values = values
+      @flags = flags
+      @docs = docs.to_s
     end
 
-    # ## Name
-    #
+    class << self
+      # Creates a new Attribute from a hash. Typically coming from a {Package}.
+      #
+      # @param attribute [Hash] The attribute hash
+      #
+      # @return [Attribute] A new Attribute instance
+      #
+      def from_hash(attribute)
+        unless attribute.is_a?(Hash)
+          return
+        end
+
+        unless attribute["name"]
+          return
+        end
+
+        unless attribute["type"]
+          return
+        end
+
+        new(
+          name: attribute["name"],
+          type: attribute["type"],
+          hint: attribute["hint"],
+          values: [*attribute["values"]],
+          flags: Utils.normalize_array_of_strings(attribute["flags"]),
+          docs: attribute["docs"],
+        )
+      end
+
+      # Creates a new Attribute from an array of hashes. Typically coming from a {Package}. Uses {Attribute#from_hash}
+      # under the hood.
+      #
+      # @param attributes [Array<Hash>] The attribute array of hashes
+      #
+      # @return [Array<Attribute>] A new array of Attribute instances
+      #
+      def from_array(attributes)
+        Utils.normalize_array attributes do |attribute|
+          from_hash(attribute)
+        end
+      end
+    end
+
     # The name of the attribute as it will appear in the endpoint's output
     # object.
     #
+    # This is required for the argument to be valid.
+    #
     # @return [String]
     #
-    def name
-      @attribute["name"]
-    end
+    attr_reader :name
 
-    # ## Type
-    #
     # The type of value returned for this attribute. Must be one of:
-    #   - object
-    #   - array
-    #   - string
-    #   - number
-    #   - boolean
     #
-    # This is a required string.
+    # - object
+    # - array
+    # - string
+    # - number
+    # - boolean
+    #
+    # This is required for the argument to be valid.
     #
     # @return [String]
     #
-    def type
-      @attribute["type"]
-    end
+    attr_reader :type
 
-    # ## Hint
-    #
-    # A string hinting about the semantics of this attribute. See the
-    # [hints section][1] for possible values and documentation tooling guidance.
+    # A string hinting about the semantics of this attribute. See the [hints section][1] for possible values and 
+    # documentation tooling guidance.
     #
     # [1]: https://webfunction.org/package#hints
     #
     # @return [String, nil]
     #
-    def hint
-      @attribute["hint"]
-    end
+    attr_reader :hint
 
-    # ## Values
+    # An array specifying the exact, case-sensitive values that may be returned for this attribute. Each value in the 
+    # values array must conform to the data type specified in the "type" key.
     #
-    # An array specifying the exact, case-sensitive values that may be returned 
-    # for this attribute. Each value in the values array must conform to the 
-    # data type specified in the "type" key.
-    #
-    # This is useful for attributes that can only take a select set of values
-    # (enums or constants).
+    # This is useful for attributes that can only take a select set of values (enums or constants).
     #
     # @return [Array]
     #
-    def values
-      [*@attribute["values"]]
-    end
+    attr_reader :values
 
-    # ## Flags
-    #
-    # An array of attribute flags. Flags describe special characteristics or 
-    # behaviors of attributes. See the [available flags section][2] for 
-    # complete list and documentation.
-    #
-    # [2]: https://webfunction.org/package#available-flags
-    #
-    # @return [Array<String>]
-    #
-    def flags
-      [*@attribute["flags"]].map(&:to_s)
-    end
-
-    # ## Docs
-    #
-    # A markdown string describing this attribute and its purpose in the output 
-    # object. Used by documentation tools, and highly recommended.
+    # A markdown string describing this attribute and its purpose in the output object. Used by documentation tools, 
+    # and highly recommended.
     #
     # @return [String]
     #
-    def docs
-      @attribute["docs"].to_s
+    attr_reader :docs
+
+    # Whether the attribute can be null.
+    #
+    # @return [Boolean]
+    #
+    def nullable?
+      flag?("nullable")
     end
   end
 end

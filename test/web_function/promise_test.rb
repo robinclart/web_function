@@ -32,7 +32,7 @@ class WebFunctionPromiseTest < Minitest::Test
     pipeline = WebFunction::Pipeline.new("https://pipe.example/exec")
     promise = pipeline.add_step({})
 
-    assert_raises(WebFunction::UnresolvedPromise) { promise.value }
+    assert_raises(WebFunction::UnresolvedPromiseError) { promise.value }
     assert_equal "$[0]", promise.to_s
   end
 

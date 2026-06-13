@@ -1,107 +1,135 @@
 # frozen_string_literal: true
 
 module WebFunction
-  # # Argument
-  #
-  # Arguments used by Web Function endpoints to define its input parameters.
+  # Arguments are used to define Web Function {Endpoint} request parameters.
   #
   # See the [arguments section][0] on the Web Function website for more details.
   #
   # [0]: https://webfunction.org/package#arguments
   #
   class Argument
-    def initialize(argument)
-      @argument = argument
+    include Flaggable
+
+    def initialize(name:, type:, hint: nil, group: nil, choices: [], flags: [], docs: nil)
+      @name = name
+      @type = type
+      @hint = hint
+      @group = group
+      @choices = choices
+      @flags = flags
+      @docs = docs.to_s
     end
 
-    # ## Name
-    #
+    class << self
+      # Instantiate a new Argument from a hash, typically coming from a {Package}.
+      #
+      # @param argument [Hash]
+      #
+      # @return [Argument, nil]
+      #
+      def from_hash(argument)
+        unless argument.is_a?(Hash)
+          return
+        end
+
+        unless argument["name"]
+          return
+        end
+
+        unless argument["type"]
+          return
+        end
+
+        new(
+          name: argument["name"],
+          type: argument["type"],
+          hint: argument["hint"],
+          group: argument["group"],
+          choices: [*argument["choices"]],
+          flags: Utils.normalize_array_of_strings(argument["flags"]),
+          docs: argument["docs"],
+        )
+      end
+
+      # Instantiate a collection of Argument from an array of hash, typically coming from a {Package}. Uses
+      # {Argument#from_hash} under the hood.
+      #
+      # @param arguments [Array<Hash>]
+      #
+      # @return [Array<Argument>]
+      #
+      def from_array(arguments)
+        Utils.normalize_array arguments do |argument|
+          from_hash(argument)
+        end
+      end
+    end
+
     # The name of the argument.
     #
     # @return [String]
     #
-    def name
-      @argument["name"]
-    end
+    attr_reader :name
 
-    # ## Type
-    #
     # The type of the argument. It must be one of:
-    #   - object
-    #   - array
-    #   - string
-    #   - number
-    #   - boolean
+    #
+    # - object
+    # - array
+    # - string
+    # - number
+    # - boolean
     #
     # @return [String]
     #
-    def type
-      @argument["type"]
-    end
+    attr_reader :type
 
-    # ## Hint
+    # A hint that further defines what kind of value to expect for an argument.
     #
-    # The hint of the argument
-    #
-    # See the [hints section][1] on the Web Function website for the full list 
-    # of possible hints.
+    # See the [hints section][1] on the Web Function website for the full list of possible hints.
     #
     # @return [String]
     #
     # [1]: https://webfunction.org/package#hints
     #
-    def hint
-      @argument["hint"]
-    end
+    attr_reader :hint
 
-    # ## Group
-    #
-    # A name used to categorize or group similar arguments together. This 
-    # should be used by documentation tools to organize related arguments.
+    # A name used to categorize or group similar arguments together. This should be used by documentation tools to
+    # organize related arguments.
     #
     # @return [String]
     #
-    def group
-      @argument["group"]
-    end
+    attr_reader :group
 
-    # ## Choices
+    # An array specifying the exact, case-sensitive values that are permitted for this argument. Each value in the 
+    # choices array must conform to the data type specified in the argument's type key.
     #
-    # An array specifying the exact, case-sensitive values that are permitted
-    # for this argument. Each value in the choices array must conform to the
-    # data type specified in the argument's type key.
-    #
-    # Note that if the argument type is array, choices may contain strings or
-    # numbers representing the allowed values that can be included in the array.
+    # Note that if the argument type is array, choices may contain strings or numbers representing the allowed values
+    # that can be included in the array.
     #
     # @return [Array]
     #
-    def choices
-      [*@argument["choices"]]
-    end
+    attr_reader :choices
 
-    # ## Flags
-    #
-    # List of argument flags. See the [available flags section][2] on the Web
-    # Function website for a complete list of flags available at the
-    # argument level.
-    #
-    # @return [Array<String>]
-    #
-    # [2]: https://webfunction.org/package#available-flags
-    #
-    def flags
-      [*@argument["flags"]].map { |flag| flag.to_s }
-    end
-
-    # ## Docs
-    #
     # Description of the argument. It must be formatted as markdown.
     #
     # @return [String]
     #
-    def docs
-      @argument["docs"].to_s
+    attr_reader :docs
+
+    # Whether the argument is required.
+    #
+    # @return [Boolean]
+    #
+    def required?
+      flag?("required")
+    end
+
+    # Whether the argument is optional.
+    #
+    # @return [Boolean]
+    #
+    def optional?
+      !required?
     end
   end
 end

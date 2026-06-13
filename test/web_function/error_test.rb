@@ -13,11 +13,11 @@ class WebFunctionErrorTest < Minitest::Test
   def test_error_optional_fields_nil
     error = WebFunction::Error.new("only message")
     assert_equal "only message", error.message
-    assert_nil error.code
+    assert_equal "WFN_ERROR", error.code
     assert_nil error.details
   end
 
   def test_unresolved_promise_is_standard_error_subclass
-    assert_operator WebFunction::UnresolvedPromise, :<, StandardError
+    assert_operator WebFunction::UnresolvedPromiseError, :<, StandardError
   end
 end

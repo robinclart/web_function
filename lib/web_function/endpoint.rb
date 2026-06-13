@@ -1,23 +1,21 @@
 # frozen_string_literal: true
 
 module WebFunction
-  # # Endpoint
-  #
   # Represents an endpoint as described in a Web Function package.
   #
-  # An endpoint defines an operation that can be performed via a Web Function API.
-  # Endpoints declare their name, documentation, arguments (inputs), attributes (outputs), and
-  # the possible errors that may occur when invoking them.
+  # An endpoint defines an operation that can be performed via a Web Function API. Endpoints declare their name,
+  # documentation, arguments (inputs), attributes (outputs), and the possible errors that may occur when invoking them.
   #
-  # Endpoints are described as objects in each package under the `"endpoints"` key.
-  # For more information, see:
+  # Endpoints are described as objects in each package under the `"endpoints"` key. For more information, see:
+  #
   # - [Web Function package docs](https://webfunction.org/package)
   # - [Web Function endpoint docs](https://webfunction.org/endpoint)
   #
-  # This class provides methods for accessing endpoint metadata (name, docs, arguments, attributes, errors)
-  # and supports invocation via HTTP.
+  # This class provides methods for accessing endpoint metadata (name, docs, arguments, attributes, errors) and
+  # supports invocation via HTTP.
   #
   # Typical tasks include:
+  #
   # - Querying endpoint name or documentation
   # - Enumerating the arguments or attributes definitions
   # - Invoking the endpoint through HTTP using required inputs
@@ -25,209 +23,229 @@ module WebFunction
   # See: https://webfunction.org/endpoint for more details on endpoint structure and contract.
   #
   class Endpoint
-    def initialize(endpoint)
-      @endpoint = endpoint
+    include Flaggable
+
+    def initialize(name:, returns: [], hints: [], flags: [], group: nil, docs: nil, arguments: [], attributes: [], errors: [])
+      @name = name
+      @returns = returns
+      @hints = hints
+      @flags = flags
+      @group = group
+      @docs = docs
+      @arguments = arguments.to_h { |a| [a.name, a] }
+      @attributes = attributes.to_h { |a| [a.name, a] }
+      @errors = errors.to_h { |e| [e.code, e] }
     end
 
     class << self
-      # ## HTTP client getter
+      # Invokes an endpoint through HTTP using the given URL, bearer authentication, version, and arguments.
       #
-      # The HTTP client used to invoke the endpoint.
+      # @param url [String] The URL of the endpoint to invoke
+      # @param bearer_auth [String] The bearer authentication token
+      # @param version [String] The API version to use
+      # @param args [Hash] The arguments to send to the endpoint
       #
-      # @return [Proc]
+      # @return [Object] The response returned by the endpoint
       #
-      def http_client
-        @http_client ||= proc do |url, headers, body|
-          response = Excon.post(url,
-            headers: headers,
-            body: body,
-          )
-          [response.status, response.body]
-        end
+      def invoke(url, bearer_auth: nil, version: nil, args: {})
+        Request.execute(url, bearer_auth: bearer_auth, version: version, args: args)
       end
 
-      # ## HTTP client setter
+      # Creates a new Endpoint from a hash.
       #
-      # Sets the HTTP client used to invoke the endpoint.
+      # @param endpoint [Hash] The endpoint hash
       #
-      # To provide a custom HTTP client instead of the default (which uses Excon),
-      # set this to any object responding to #call or a Proc/lambda.
+      # @return [Endpoint] A new Endpoint instance
       #
-      # The contract is:
-      #   client.call(url, headers, body)
-      #
-      # - url:    [String] The full URL to post to (not just the hostname or path).
-      # - headers:[Hash<String,String>] HTTP headers, e.g. { "Content-Type" => "application/json" }
-      # - body:   [String] The JSON body to post.
-      #
-      # The client must return a two-element Array: [status, body]:
-      # - status: [Integer] HTTP status code (e.g. 200, 400, 500)
-      # - body:   [String] Raw response body as a string
-      #
-      # Example:
-      #   WebFunction::Endpoint.http_client = ->(url, headers, args) {
-      #     http_response = MyHTTP.post(url, headers: headers, body: JSON.generate(args))
-      #     [http_response.status, http_response.body]
-      #   }
-      #
-      # @param http_client [Proc,#call] The new HTTP client to use.
-      #
-      attr_writer :http_client
-
-      def step(url, bearer_auth: nil, args: {})
-        headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "webfunction/#{WebFunction::VERSION}",
-        }
-
-        if args.nil?
-          args = {}
+      def from_hash(endpoint)
+        unless endpoint.is_a?(Hash)
+          return
         end
 
-        if bearer_auth
-          headers["Authorization"] = "Bearer #{bearer_auth}"
+        unless endpoint["name"]
+          return
         end
 
-        {
-          url: url,
-          headers: headers,
-          body: args,
-        }
+        new(
+          name: endpoint["name"],
+          returns: Utils.normalize_array_of_strings(endpoint["returns"]),
+          hints: Utils.normalize_array_of_strings(endpoint["hints"]),
+          flags: Utils.normalize_array_of_strings(endpoint["flags"]),
+          group: endpoint["group"],
+          docs: endpoint["docs"].to_s,
+          arguments: Argument.from_array(endpoint["arguments"]),
+          attributes: Attribute.from_array(endpoint["attributes"]),
+          errors: DocumentedError.from_array(endpoint["errors"]),
+        )
       end
 
-      def invoke(url, bearer_auth: nil, args: {})
-        headers = {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "webfunction/#{WebFunction::VERSION}",
-        }
-
-        if args.nil?
-          args = {}
+      # Creates a new Endpoint from an array of hashes. Uses {Endpoint#from_hash} under the hood.
+      #
+      # @param endpoints [Array<Hash>] The endpoint array of hashes
+      #
+      # @return [Array<Endpoint>] A new array of Endpoint instances
+      #
+      def from_array(endpoints)
+        Utils.normalize_array endpoints do |endpoint|
+          from_hash(endpoint)
         end
-
-        if bearer_auth
-          headers["Authorization"] = "Bearer #{bearer_auth}"
-        end
-
-        status, body = http_client.call(url, headers, JSON.generate(args))
-
-        unless [200, 400].include?(status)
-          raise WebFunction::UnexpectedStatusCodeError.new("Unexpected status code (#{status})",
-            details: {
-              status_code: status,
-              raw_body: body,
-            },
-          )
-        end
-
-        begin
-          result = JSON.parse(body)
-        rescue JSON::ParserError => e
-          raise WebFunction::JsonParseError.new(e.message,
-            details: {
-              status_code: status,
-              raw_body: body,
-              original_exception: e,
-            },
-          )
-        end
-
-        if status == 400
-          code = "BAD_REQUEST"
-          message = "Bad request"
-          details = { body: result }
-
-          if result.is_a?(Array) && result.length == 3 && result[0].is_a?(String) && result[1].is_a?(String)
-            code = result[0]
-            message = result[1]
-            details = result[2]
-          end
-
-          raise WebFunction::BadRequestError.new(message, code: code, details: details)
-        end
-
-        result
       end
     end
 
-    def name
-      @endpoint["name"]
-    end
+    # The {Client} used to invoke this endpoint. It is assigned when the endpoint is loaded from a package and is
+    # required by {#call}.
+    #
+    # @return [Client, nil]
+    #
+    attr_accessor :client
 
-    def returns
-      [*@endpoint["returns"]].map { |type| type.to_s }
-    end
+    # The suffix for the endpoint URL, appended to the package's base URL to form the full endpoint URL. Endpoint names
+    # are unique within a package; overloading (two endpoints sharing the same name) is not permitted.
+    #
+    # @return [String]
+    #
+    attr_reader :name
 
-    def hints
-      [*@endpoint["hints"]].map { |hint| hint.to_s }
-    end
+    # The JSON type(s) returned by the endpoint. A non-empty array whose entries are each one of:
+    #
+    # - object
+    # - array
+    # - string
+    # - number
+    # - boolean
+    # - null
+    #
+    # @return [Array<String>]
+    #
+    attr_reader :returns
 
-    def flags
-      [*@endpoint["flags"]].map { |flag| flag.to_s }
-    end
+    # Hints for the endpoint's return value. Each hint's base JSON type matches one of the endpoint's {#returns} types,
+    # and at most one hint is supplied per base JSON type. See the [hints section][1] on the Web Function website for
+    # the complete list of allowed hints.
+    #
+    # @return [Array<String>]
+    #
+    # [1]: https://webfunction.org/package#hints
+    #
+    attr_reader :hints
 
-    def group
-      @endpoint["group"]
-    end
+    # A name used to categorize or group similar endpoints together. This should be used by documentation tools to
+    # organize related endpoints.
+    #
+    # @return [String, nil]
+    #
+    attr_reader :group
 
-    def docs
-      @endpoint["docs"].to_s
-    end
+    # Documentation for the endpoint. It must be formatted as markdown.
+    #
+    # @return [String]
+    #
+    attr_reader :docs
 
-    def arguments
-      unless @endpoint["arguments"].is_a?(Array)
-        return []
+    # Invokes the endpoint through its assigned {#client}, passing the given arguments.
+    #
+    # @param args [Hash] The arguments to send to the endpoint.
+    #
+    # @raise [RuntimeError] If no client has been assigned to the endpoint.
+    #
+    # @return [Object] The decoded response returned by the endpoint.
+    #
+    def call(args = {})
+      unless client
+        raise "Client must be set to invoke an endpoint"
       end
 
-      @endpoint["arguments"].map do |argument|
-        unless argument.is_a?(Hash)
-          next
-        end
-
-        unless argument["name"]
-          next
-        end
-
-        Argument.new(argument)
-      end
+      client.call(name, args)
     end
 
-    def attributes
-      unless @endpoint["attributes"].is_a?(Array)
-        return []
-      end
-
-      @endpoint["attributes"].map do |attribute|
-        unless attribute.is_a?(Hash)
-          next
-        end
-
-        unless attribute["name"]
-          next
-        end
-
-        Attribute.new(attribute)
-      end
-    end
-
+    # The list of errors specific to this endpoint. Clients SHOULD only refer to this list if the endpoint uses the
+    # `error_triple` flag. See the error specification for more information.
+    #
+    # @return [Array<DocumentedError>]
+    #
     def errors
-      unless @endpoint["errors"].is_a?(Array)
-        return []
-      end
+      @errors.values
+    end
 
-      @endpoint["errors"].map do |error|
-        unless error.is_a?(Hash)
-          next
-        end
+    # Looks up a single endpoint error by its machine-readable code.
+    #
+    # @param code [String, Symbol] The error code to look up.
+    #
+    # @return [DocumentedError, nil] The matching error, or `nil` if none is found.
+    #
+    def error(code)
+      @errors[code.to_s]
+    end
 
-        unless error["code"]
-          next
-        end
+    # The attributes of the object returned by the endpoint. Relevant when the endpoint returns an `object`.
+    #
+    # @return [Array<Attribute>]
+    #
+    def attributes
+      @attributes.values
+    end
 
-        DocumentedError.new(error)
-      end
+    # Looks up a single returned attribute by name.
+    #
+    # @param name [String, Symbol] The name of the attribute to look up.
+    #
+    # @return [Attribute, nil] The matching attribute, or `nil` if none is found.
+    #
+    def attribute(name)
+      @attributes[name.to_s]
+    end
+
+    # The arguments required by the endpoint. The array is empty when the endpoint requires no arguments.
+    #
+    # @return [Array<Argument>]
+    #
+    def arguments
+      @arguments.values
+    end
+
+    # Looks up a single argument by name.
+    #
+    # @param name [String, Symbol] The name of the argument to look up.
+    #
+    # @return [Argument, nil] The matching argument, or `nil` if none is found.
+    #
+    def argument(name)
+      @arguments[name.to_s]
+    end
+
+    # Whether the endpoint requires authentication via a bearer token, i.e. whether it declares the `bearer_auth` flag.
+    #
+    # @return [Boolean]
+    #
+    def bearer_auth?
+      flag?("bearer_auth")
+    end
+
+    # Whether the endpoint returns a bearer token in its response, i.e. whether it declares the `capture_bearer` flag.
+    # See the authentication specification for more information.
+    #
+    # @return [Boolean]
+    #
+    def capture_bearer?
+      flag?("capture_bearer")
+    end
+
+    # Whether the endpoint supports pagination, i.e. whether it declares the `paginated` flag.
+    #
+    # @return [Boolean]
+    #
+    def paginated?
+      flag?("paginated")
+    end
+
+    # Whether the endpoint is intended for internal use and is not part of the public API, i.e. whether it declares the
+    # `private` flag. Documentation tooling SHOULD omit endpoints with this flag from generated or
+    # published documentation.
+    #
+    # @return [Boolean]
+    #
+    def private?
+      flag?("private")
     end
   end
 end

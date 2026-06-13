@@ -15,7 +15,7 @@ class WebFunctionAttributeTest < Minitest::Test
   end
 
   def test_readers
-    attribute = WebFunction::Attribute.new(hash_payload)
+    attribute = WebFunction::Attribute.from_hash(hash_payload)
     assert_equal "state", attribute.name
     assert_equal "array", attribute.type
     refute attribute.hint
@@ -25,13 +25,13 @@ class WebFunctionAttributeTest < Minitest::Test
   end
 
   def test_values_and_flags_empty_when_missing
-    attribute = WebFunction::Attribute.new("name" => "n")
+    attribute = WebFunction::Attribute.from_hash("name" => "n", "type" => "string")
     assert_equal [], attribute.values
     assert_equal [], attribute.flags
   end
 
   def test_docs_coerces_nil
-    attribute = WebFunction::Attribute.new("name" => "n")
+    attribute = WebFunction::Attribute.from_hash("name" => "n", "type" => "string")
     assert_equal "", attribute.docs
   end
 end
