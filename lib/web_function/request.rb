@@ -94,6 +94,7 @@ module WebFunction
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "webfunction/#{WebFunction::VERSION}",
+        "Accept-Encoding": "gzip",
       }
 
       if @bearer_auth
