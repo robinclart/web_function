@@ -95,6 +95,24 @@ module WebFunction
     #
     attr_reader :package
 
+    # The bearer authentication token.
+    #
+    # @param bearer_auth [String] The bearer authentication token
+    #
+    attr_writer :bearer_auth
+
+    # The API version to use.
+    #
+    # @param version [String] The API version to use
+    #
+    attr_writer :version
+
+    # The pipeline to use.
+    #
+    # @param pipeline [Pipeline] The pipeline to use
+    #
+    attr_writer :pipeline
+
     def methods # :nodoc:
       @endpoints.keys
     end

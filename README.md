@@ -123,6 +123,9 @@ Both builders accept the same options:
 | `version` | A version string sent in the `Api-Version` header. |
 | `pipelined` | When `true`, calls are batched into one request. See [Pipelining](#pipelining). |
 
+You can also overwrite these using the `Client#bearer_auth=`, `Client#version=`
+and `Client#pipeline=` attribute writers after having instantiated a client.
+
 ## Calling endpoints
 
 Endpoint names use dashes, like `list-items`. The client exposes them as Ruby
