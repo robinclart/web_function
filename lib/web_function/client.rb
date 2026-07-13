@@ -133,6 +133,10 @@ module WebFunction
       @endpoints.keys
     end
 
+    def nil? # :nodoc:
+      false
+    end
+
     def respond_to_missing?(method_name, include_private = false) # :nodoc:
       @endpoints[method_name]
     end
