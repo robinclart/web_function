@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    web_function (0.7.0)
+    web_function (0.8.0)
       excon (~> 1.2)
       irb
       json (~> 2.10)
