@@ -9,7 +9,7 @@ sdk = WebFunction::Client.from_package_endpoint("http://localhost:55001/api/sdk"
 
 merchant = WebFunction::Client.from_package_endpoint("http://localhost:55001/api/merchants",
   bearer_auth: "reservepay_u6BHU4diPq7MVZCUJu7Ppu81nTrfYP1fMYVS",
-  pipeline: pipeline,
+  pipelined: true,
 )
 
 installations = merchant.list_installations

@@ -40,5 +40,28 @@ module WebFunction
     def normalize_array_of_strings(collection)
       normalize_array(collection) { |item| item.to_s }
     end
+
+    def get_body_from_url(url, extra_query_params: {})
+      url = add_query_params(url, extra_query_params)
+      response = ::Excon.get(url, headers: {
+        "User-Agent": "webfunction/#{::WebFunction::VERSION}",
+        "Accept-Encoding": "gzip",
+      })
+
+      response.body
+    end
+
+    def add_query_params(url, params = {})
+      uri = ::URI.parse(url)
+      existing_params = ::URI.decode_www_form(uri.query || "").to_h
+      new_params = params.reject { |_, value| value.nil? }.transform_keys(&:to_s)
+      merged_params = existing_params.merge(new_params)
+
+      unless merged_params.empty?
+        uri.query = ::URI.encode_www_form(merged_params)
+      end
+
+      uri.to_s
+    end
   end
 end

@@ -18,7 +18,7 @@ module WebFunction
     end
 
     class << self
-      # Creates a new {Client} from an url.
+      # Creates a new {Client} from an endpoint.
       #
       # @param url [String] The URL of the package endpoint
       # @param bearer_auth [String] The bearer authentication token
@@ -30,6 +30,22 @@ module WebFunction
       def from_package_endpoint(url, bearer_auth: nil, version: nil, pipelined: false)
         response = ::WebFunction::Request.execute(url, bearer_auth: bearer_auth, version: version)
         package = ::WebFunction::Package.from_hash(response)
+
+        from_package(package, bearer_auth: bearer_auth, version: version, pipelined: pipelined)
+      end
+
+      # Creates a new {Client} from an url.
+      #
+      # @param url [String] The URL of the package endpoint
+      # @param bearer_auth [String] The bearer authentication token
+      # @param version [String] The API version to use
+      # @param pipelined [Boolean] Whether to have the client use call pipelining
+      #
+      # @return [Client]
+      #
+      def from_url(url, bearer_auth: nil, version: nil, pipelined: false)
+        body = ::WebFunction::Utils.get_body_from_url(url, extra_query_params: { api_version: version })
+        package = ::WebFunction::Package.from_hash(::JSON.parse(body))
 
         from_package(package, bearer_auth: bearer_auth, version: version, pipelined: pipelined)
       end
