@@ -9,8 +9,8 @@ class WebFunctionClientTest < Minitest::Test
       "pipeline_url" => "https://api.webfunction.com/run-pipeline",
       "name" => "Web Function",
       "endpoints" => [
-        { "name" => "list-items" },
-        { "name" => "other" },
+        { "name" => "list-items", "returns" => "object" },
+        { "name" => "other", "returns" => "object" },
       ],
     }
   end

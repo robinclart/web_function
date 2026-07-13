@@ -10,7 +10,7 @@ class WebFunctionPackageTest < Minitest::Test
       "flags" => %w[alpha beta],
       "docs" => "Package docs",
       "endpoints" => [
-        { "name" => "hello", "docs" => "Say hi" },
+        { "name" => "hello", "returns" => "object", "docs" => "Say hi" },
         "not-a-hash",
         { "docs" => "missing name" },
       ],
@@ -64,5 +64,50 @@ class WebFunctionPackageTest < Minitest::Test
   def test_docs_coerces_to_string
     assert_equal "", WebFunction::Package.from_hash({}).docs
     assert_equal "123", WebFunction::Package.from_hash("docs" => 123).docs
+  end
+
+  def package_with_objects
+    WebFunction::Package.from_hash(
+      "base_url" => "https://api.webfunction.com/",
+      "objects" => [
+        {
+          "name" => "user",
+          "arguments" => [{ "name" => "id", "type" => "string" }],
+          "attributes" => [{ "name" => "email", "type" => "string.email" }],
+        },
+        { "name" => "input_only", "arguments" => [{ "name" => "q", "type" => "string" }] },
+      ],
+    )
+  end
+
+  def test_objects_readers
+    package = package_with_objects
+    assert_equal %w[user input_only], package.objects.map(&:name)
+  end
+
+  def test_object_resolves_when_context_has_members
+    package = package_with_objects
+    assert_equal "user", package.object("user", context: :arguments).name
+    assert_equal "user", package.object("user", context: :attributes).name
+    assert_equal "user", package.object(:user, context: :arguments).name
+  end
+
+  def test_object_returns_nil_when_context_has_no_members
+    package = package_with_objects
+    assert_nil package.object("input_only", context: :attributes)
+    assert_equal "input_only", package.object("input_only", context: :arguments).name
+  end
+
+  def test_object_returns_nil_when_missing
+    assert_nil package_with_objects.object("missing", context: :arguments)
+  end
+
+  def test_object_raises_on_unknown_context
+    assert_raises(ArgumentError) { package_with_objects.object("user", context: :bogus) }
+  end
+
+  def test_objects_empty_when_missing_or_not_array
+    assert_equal [], WebFunction::Package.from_hash({}).objects
+    assert_equal [], WebFunction::Package.from_hash("objects" => {}).objects
   end
 end

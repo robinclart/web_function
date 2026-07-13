@@ -6,19 +6,18 @@ class WebFunctionEndpointTest < Minitest::Test
   def endpoint_hash
     {
       "name" => "do-thing",
-      "returns" => [:json, "text"],
-      "hints" => [:fast],
+      "returns" => %w[object null],
       "flags" => [:beta],
       "group" => "main",
       "docs" => "Does a thing",
       "arguments" => [
-        { "name" => "id", "type" => "string", "hint" => "id", "choices" => [1, 2], "flags" => [:req],
+        { "name" => "id", "type" => "string", "choices" => [1, 2], "flags" => [:required],
           "docs" => "Arg docs", },
         "skip",
         { "name" => nil },
       ],
       "attributes" => [
-        { "name" => "status", "type" => "string", "hint" => nil, "values" => [1], "flags" => [], "docs" => "" },
+        { "name" => "status", "type" => "string", "values" => [1], "flags" => [], "docs" => "" },
       ],
       "errors" => [
         { "code" => "X", "docs" => "e" },
@@ -29,17 +28,21 @@ class WebFunctionEndpointTest < Minitest::Test
   def test_instance_readers
     ep = WebFunction::Endpoint.from_hash(endpoint_hash)
     assert_equal "do-thing", ep.name
-    assert_equal %w[json text], ep.returns
-    assert_equal %w[fast], ep.hints
+    assert_equal WebFunction::Type.union([WebFunction::Type.object, WebFunction::Type.null]), ep.returns
+    assert_equal "object | null", ep.returns.to_s
     assert_equal %w[beta], ep.flags
     assert_equal "main", ep.group
     assert_equal "Does a thing", ep.docs
   end
 
-  def test_returns_hints_flags_empty_when_missing
-    ep = WebFunction::Endpoint.from_hash({ "name" => "n" })
-    assert_equal [], ep.returns
-    assert_equal [], ep.hints
+  def test_from_hash_returns_nil_without_name_or_returns
+    assert_nil WebFunction::Endpoint.from_hash("not a hash")
+    assert_nil WebFunction::Endpoint.from_hash("returns" => "object")
+    assert_nil WebFunction::Endpoint.from_hash("name" => "n")
+  end
+
+  def test_flags_empty_when_missing
+    ep = WebFunction::Endpoint.from_hash("name" => "n", "returns" => "object")
     assert_equal [], ep.flags
   end
 
@@ -51,7 +54,7 @@ class WebFunctionEndpointTest < Minitest::Test
   end
 
   def test_arguments_empty_when_not_array
-    ep = WebFunction::Endpoint.from_hash("name" => "n", "arguments" => {})
+    ep = WebFunction::Endpoint.from_hash("name" => "n", "returns" => "object", "arguments" => {})
     assert_equal [], ep.arguments
   end
 
@@ -124,7 +127,7 @@ class WebFunctionEndpointTest < Minitest::Test
   end
 
   def test_docs_coerces_nil
-    ep = WebFunction::Endpoint.from_hash("name" => "n")
+    ep = WebFunction::Endpoint.from_hash("name" => "n", "returns" => "object")
     assert_equal "", ep.docs
   end
 end

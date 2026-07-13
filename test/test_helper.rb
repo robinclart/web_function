@@ -28,6 +28,8 @@ module WebFunctionTestHelpers
   end
 end
 
-class Minitest::Test
-  include WebFunctionTestHelpers
+module Minitest
+  class Test
+    include WebFunctionTestHelpers
+  end
 end
