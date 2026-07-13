@@ -12,9 +12,11 @@ require_relative "web_function/package"
 require_relative "web_function/endpoint"
 require_relative "web_function/argument"
 require_relative "web_function/attribute"
+require_relative "web_function/object_schema"
 require_relative "web_function/documented_error"
 require_relative "web_function/pipeline"
 require_relative "web_function/promise"
+require_relative "web_function/type"
 require_relative "web_function/utils"
 
 module WebFunction

@@ -16,7 +16,7 @@ module WebFunction
     include Flaggable
 
     def initialize(base_url:, pipeline_url: nil, name: nil, version: nil, docs: nil, flags: [], versions: [],
-                   endpoints: [], errors: [])
+                   endpoints: [], errors: [], objects: [])
       @base_url = base_url
       @pipeline_url = pipeline_url
       @name = name
@@ -26,6 +26,7 @@ module WebFunction
       @versions = versions
       @endpoints = endpoints.to_h { |e| [e.name, e] }
       @errors = errors.to_h { |e| [e.code, e] }
+      @objects = objects.to_h { |o| [o.name, o] }
     end
 
     class << self
@@ -46,6 +47,7 @@ module WebFunction
           versions: Utils.normalize_array_of_strings(package["versions"]),
           endpoints: Endpoint.from_array(package["endpoints"]),
           errors: DocumentedError.from_array(package["errors"]),
+          objects: ObjectSchema.from_array(package["objects"]),
         )
       end
     end
@@ -142,6 +144,44 @@ module WebFunction
     #
     def error(code)
       @errors[code.to_s]
+    end
+
+    # The named object definitions declared by this package. Each can be referenced as a refined object type
+    # (`object.<name>`) anywhere a type is expected.
+    #
+    # @return [Array<ObjectSchema>]
+    #
+    def objects
+      @objects.values
+    end
+
+    # Looks up a single object definition by name, resolved for the given context.
+    #
+    # An `object.` reference appears in either an argument or attribute context, which determines which set of members
+    # applies. The `context` selects the member set that is relevant; an object that does not define members for the
+    # requested context is treated as absent and `nil` is returned.
+    #
+    # @param name [String, Symbol] The name of the object to look up.
+    # @param context [Symbol] The context the object is referenced in. One of {ObjectSchema::CONTEXTS}
+    #   (`:arguments` or `:attributes`).
+    #
+    # @raise [ArgumentError] If the context is not one of {ObjectSchema::CONTEXTS}.
+    #
+    # @return [ObjectSchema, nil] The matching object, or `nil` if none is found or it defines no members for the
+    #   given context.
+    #
+    def object(name, context:)
+      object = @objects[name.to_s]
+
+      unless object
+        return
+      end
+
+      if object.properties(context).empty?
+        return
+      end
+
+      object
     end
 
     # Whether the package is versioned, i.e. whether it declares the `versioned` flag. A versioned package is selected

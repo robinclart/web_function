@@ -10,10 +10,9 @@ module WebFunction
   class Argument
     include Flaggable
 
-    def initialize(name:, type:, hint: nil, group: nil, choices: [], flags: [], docs: nil)
+    def initialize(name:, type:, group: nil, choices: [], flags: [], docs: nil)
       @name = name
-      @type = type
-      @hint = hint
+      @type = Type.parse(type)
       @group = group
       @choices = choices
       @flags = flags
@@ -43,7 +42,6 @@ module WebFunction
         new(
           name: argument["name"],
           type: argument["type"],
-          hint: argument["hint"],
           group: argument["group"],
           choices: [*argument["choices"]],
           flags: Utils.normalize_array_of_strings(argument["flags"]),
@@ -82,16 +80,6 @@ module WebFunction
     # @return [String]
     #
     attr_reader :type
-
-    # A hint that further defines what kind of value to expect for an argument.
-    #
-    # See the [hints section][1] on the Web Function website for the full list of possible hints.
-    #
-    # @return [String]
-    #
-    # [1]: https://webfunction.org/package#hints
-    #
-    attr_reader :hint
 
     # A name used to categorize or group similar arguments together. This should be used by documentation tools to
     # organize related arguments.

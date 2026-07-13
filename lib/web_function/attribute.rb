@@ -12,10 +12,9 @@ module WebFunction
   class Attribute
     include Flaggable
 
-    def initialize(name:, type:, hint: nil, values: [], flags: [], docs: nil)
+    def initialize(name:, type:, values: [], flags: [], docs: nil)
       @name = name
-      @type = type
-      @hint = hint
+      @type = Type.parse(type)
       @values = values
       @flags = flags
       @docs = docs.to_s
@@ -44,7 +43,6 @@ module WebFunction
         new(
           name: attribute["name"],
           type: attribute["type"],
-          hint: attribute["hint"],
           values: [*attribute["values"]],
           flags: Utils.normalize_array_of_strings(attribute["flags"]),
           docs: attribute["docs"],
@@ -87,15 +85,6 @@ module WebFunction
     # @return [String]
     #
     attr_reader :type
-
-    # A string hinting about the semantics of this attribute. See the [hints section][1] for possible values and 
-    # documentation tooling guidance.
-    #
-    # [1]: https://webfunction.org/package#hints
-    #
-    # @return [String, nil]
-    #
-    attr_reader :hint
 
     # An array specifying the exact, case-sensitive values that may be returned for this attribute. Each value in the 
     # values array must conform to the data type specified in the "type" key.

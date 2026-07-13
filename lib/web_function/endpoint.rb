@@ -25,10 +25,9 @@ module WebFunction
   class Endpoint
     include Flaggable
 
-    def initialize(name:, returns: [], hints: [], flags: [], group: nil, docs: nil, arguments: [], attributes: [], errors: [])
+    def initialize(name:, returns:, flags: [], group: nil, docs: nil, arguments: [], attributes: [], errors: [])
       @name = name
-      @returns = returns
-      @hints = hints
+      @returns = Type.parse(returns)
       @flags = flags
       @group = group
       @docs = docs
@@ -66,10 +65,13 @@ module WebFunction
           return
         end
 
+        unless endpoint["returns"]
+          return
+        end
+
         new(
           name: endpoint["name"],
-          returns: Utils.normalize_array_of_strings(endpoint["returns"]),
-          hints: Utils.normalize_array_of_strings(endpoint["hints"]),
+          returns: endpoint["returns"],
           flags: Utils.normalize_array_of_strings(endpoint["flags"]),
           group: endpoint["group"],
           docs: endpoint["docs"].to_s,
@@ -118,16 +120,6 @@ module WebFunction
     # @return [Array<String>]
     #
     attr_reader :returns
-
-    # Hints for the endpoint's return value. Each hint's base JSON type matches one of the endpoint's {#returns} types,
-    # and at most one hint is supplied per base JSON type. See the [hints section][1] on the Web Function website for
-    # the complete list of allowed hints.
-    #
-    # @return [Array<String>]
-    #
-    # [1]: https://webfunction.org/package#hints
-    #
-    attr_reader :hints
 
     # A name used to categorize or group similar endpoints together. This should be used by documentation tools to
     # organize related endpoints.
