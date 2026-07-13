@@ -23,6 +23,8 @@ client.find_user(id: "123")
 - [Authentication](#authentication)
 - [Versioning](#versioning)
 - [Inspecting a package](#inspecting-a-package)
+- [Types](#types)
+- [Object schemas](#object-schemas)
 - [Error handling](#error-handling)
 - [Pipelining](#pipelining)
 - [Custom HTTP client](#custom-http-client)
@@ -100,6 +102,18 @@ reads its endpoints, and returns a ready client:
 client = WebFunction::Client.from_package_endpoint("https://api.example.com/package")
 ```
 
+`from_package_endpoint` fetches the package by calling the URL as a Web
+Function endpoint, that is, with a POST request. If your package document is
+served as plain JSON over a regular `GET` request instead, use `from_url`:
+
+```ruby
+client = WebFunction::Client.from_url("https://api.example.com/package.json")
+```
+
+`from_url` accepts the same options as `from_package_endpoint`. When you pass a
+`version`, it is added to the request as an `api_version` query parameter rather
+than an `Api-Version` header.
+
 If you already have a package in memory, build the client from that instead.
 This avoids the extra request:
 
@@ -107,15 +121,15 @@ This avoids the extra request:
 package = WebFunction::Package.from_hash(
   "base_url" => "https://api.example.com/",
   "endpoints" => [
-    { "name" => "list-items" },
-    { "name" => "create-item" },
+    { "name" => "list-items", "returns" => [["object"]] },
+    { "name" => "create-item", "returns" => ["object"] },
   ],
 )
 
 client = WebFunction::Client.from_package(package)
 ```
 
-Both builders accept the same options:
+All three builders accept the same options:
 
 | Option | Description |
 | --- | --- |
@@ -223,10 +237,11 @@ endpoint = package.endpoint("find-user")
 # Same as:
 endpoint = package.endpoint(:find_user)
 
-endpoint.name    # => "find-user"
-endpoint.docs    # => "Retrieves user data."
-endpoint.returns # => ["object"]
-endpoint.group   # => "Users"
+endpoint.name       # => "find-user"
+endpoint.docs       # => "Retrieves user data."
+endpoint.returns    # => a Type, see below
+endpoint.returns.to_s # => "object"
+endpoint.group      # => "Users"
 ```
 
 Each endpoint lists the arguments it takes:
@@ -236,12 +251,13 @@ endpoint.arguments
 # => [#<WebFunction::Argument ...>]
 
 id = endpoint.argument("id")
-id.name      # => "id"
-id.type      # => "string"
-id.required? # => true
-id.optional? # => false
-id.choices   # => []
-id.docs      # => "Identifier of the user."
+id.name        # => "id"
+id.type        # => a Type, see below
+id.type.to_s   # => "string"
+id.required?   # => true
+id.optional?   # => false
+id.choices     # => []
+id.docs        # => "Identifier of the user."
 ```
 
 It also lists the attributes it returns when the return type is an object:
@@ -249,7 +265,8 @@ It also lists the attributes it returns when the return type is an object:
 ```ruby
 name = endpoint.attribute("name")
 name.name      # => "name"
-name.type      # => "string"
+name.type      # => a Type, see below
+name.type.to_s # => "string"
 name.nullable? # => false
 name.values    # => []
 ```
@@ -261,6 +278,92 @@ endpoint = client.package.endpoint("find-user")
 endpoint.call(id: "123")
 # => { "id" => "123", "name" => "Ada" }
 ```
+
+## Types
+
+An endpoint's `returns`, an argument's `type`, and an attribute's `type` are all
+`WebFunction::Type` objects rather than plain strings. A type is parsed from the
+package once and gives you a richer view of what a value may look like.
+
+Every type responds to `to_s` and `format`, so you can render it however your
+docs need:
+
+```ruby
+type = endpoint.argument("email").type
+
+type.to_s            # => "string.email"
+type.format(:compact) # => "email"
+type.format(:base)    # => "string"
+```
+
+A type also knows how to validate a value against itself. This checks both the
+base type and any refinement, like `email` or `uuid`:
+
+```ruby
+type.valid?("ada@example.com") # => true
+type.valid?("not-an-email")    # => false
+```
+
+The base types are `string`, `number`, `object`, `boolean`, and `null`.
+`string` and `number` may carry a refinement that narrows the value further:
+
+- `string`: `date`, `time`, `datetime`, `uuid`, `base64`, `email`, `phone`,
+  `url`, `uri`, `ipv4`, `ipv6`, `hostname`.
+- `number`: `u32`, `u64`, `i32`, `i64`, `f32`, `f64`, `timestamp`.
+
+Types compose. A package can declare an array of a type, a union of several
+types, or an open `any` type. A top-level array of type strings is read as a
+union of those types, while a nested array denotes an array whose elements have
+the inner type:
+
+```ruby
+WebFunction::Type.parse(["object", "null"]).to_s # => "object | null"
+WebFunction::Type.parse([["string"]]).to_s       # => "array<string>"
+WebFunction::Type.parse("array").to_s            # => "array<any>"
+WebFunction::Type.parse(nil).to_s               # => "any"
+```
+
+When a type refers to a named object definition (see below), `objects` lists the
+names it references:
+
+```ruby
+WebFunction::Type.parse("object.user").objects # => ["user"]
+```
+
+## Object schemas
+
+A package can declare named object definitions under its `objects` key. Any type
+can then refer to one as `object.<name>`. This lets several endpoints share the
+same object shape instead of repeating its fields.
+
+List the objects a package defines, or look one up by name:
+
+```ruby
+package.objects
+# => [#<WebFunction::ObjectSchema ...>]
+```
+
+An object may be referenced in two different contexts, and each context uses a
+different set of members:
+
+- In an **argument** context (an argument's `type`), its `arguments` describe
+  its fields.
+- In an **attribute** context (an endpoint's `returns` or an attribute's
+  `type`), its `attributes` describe its fields.
+
+Because the same object may appear in both contexts, `object` takes a `context:`
+so you get back the right member set:
+
+```ruby
+user = package.object("user", context: :attributes)
+
+user.name       # => "user"
+user.attributes # => [#<WebFunction::Attribute ...>]
+user.attribute("email").type.to_s # => "string.email"
+```
+
+If the object is not defined, or defines no members for the requested context,
+`object` returns `nil`.
 
 ## Error handling
 
