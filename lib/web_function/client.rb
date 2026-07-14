@@ -88,7 +88,8 @@ module WebFunction
     # @param endpoint_name [String] The name of the endpoint to call
     # @param args [Hash] The arguments to send to the endpoint
     #
-    # @return [Object] The decoded response returned by the endpoint
+    # @return [Object, Page] The decoded response returned by the endpoint.
+    #   Paginated responses are wrapped in a {Page}.
     #
     def call(endpoint_name, args = {})
       url = ::URI.join(@base_url, endpoint_name).to_s

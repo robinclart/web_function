@@ -20,6 +20,7 @@ client.find_user(id: "123")
 - [Quick start](#quick-start)
 - [Clients](#clients)
 - [Calling endpoints](#calling-endpoints)
+- [Pagination](#pagination)
 - [Authentication](#authentication)
 - [Versioning](#versioning)
 - [Inspecting a package](#inspecting-a-package)
@@ -150,7 +151,9 @@ client.list_items(limit: 10, offset: 20)
 ```
 
 The return value is the parsed JSON response. It can be a hash, an array, a
-string, a number, a boolean, or `nil`.
+string, a number, a boolean, or `nil`. When the response matches the pagination
+contract, it is wrapped in a `WebFunction::Page` instead — see
+[Pagination](#pagination).
 
 ```ruby
 client.get_count          # => 42
@@ -170,6 +173,57 @@ Calling an endpoint that the package does not define raises `NoMethodError`:
 client.does_not_exist
 # => NoMethodError
 ```
+
+## Pagination
+
+Some endpoints return results in pages. A paginated response is a JSON object
+with three keys: `page` (the items), `next`, and `previous`. The gem detects
+this shape automatically and returns a `WebFunction::Page` instead of a bare
+hash.
+
+```ruby
+page = client.list_people(filters: { first_name: "Joe" })
+# => #<WebFunction::Page>
+
+page.page
+# => [{ "person_id" => "person_1", "first_name" => "Joe" }, ...]
+
+page.next?     # => true
+page.previous? # => false
+```
+
+`Page` is Enumerable over the current page's items:
+
+```ruby
+page.map { |person| person["person_id"] }
+```
+
+To move between pages, call `next_page` or `previous_page`. Each call posts the
+opaque `next` or `previous` body from the last response to the same endpoint —
+you never build or change those bodies yourself:
+
+```ruby
+next_page = page.next_page
+# => #<WebFunction::Page>
+
+next_page.previous?
+# => true
+
+next_page.previous_page
+# => back to the earlier page
+```
+
+When there is no adjacent page, `next?` / `previous?` are `false` and
+`next_page` / `previous_page` return `nil`.
+
+You can ask an endpoint whether it declares the `paginated` flag:
+
+```ruby
+endpoint = client.package.endpoint("list-people")
+endpoint.paginated? # => true
+```
+
+The full contract is at [webfunction.org/pagination](https://webfunction.org/pagination).
 
 ## Authentication
 

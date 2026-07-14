@@ -49,7 +49,8 @@ module WebFunction
       # @param version [String] The API version to use
       # @param args [Hash] The arguments to send to the request
       #
-      # @return [Object] The response returned by the request
+      # @return [Object, Page] The response returned by the request. Paginated
+      #   responses are wrapped in a {Page}.
       def execute(url, bearer_auth: nil, version: nil, args: {})
         request = new(url, bearer_auth: bearer_auth, version: version, args: args)
         request.execute
@@ -122,11 +123,15 @@ module WebFunction
 
     # Executes the request.
     #
+    # When the response matches the pagination contract (`page`, `next`, and
+    # `previous` keys), it is wrapped in a {Page} so callers can navigate with
+    # {Page#next_page} and {Page#previous_page}.
+    #
     # @raise [WebFunction::UnexpectedStatusCodeError] If the status code is not 200 or 400
     # @raise [WebFunction::JsonParseError] If the response is not valid JSON
     # @raise [WebFunction::BadRequestError] If the response is a bad request
     #
-    # @return [Object] The response returned by the request
+    # @return [Object, Page] The response returned by the request
     #
     def execute
       status, body = self.class.http_client.call(@url, headers, JSON.generate(@args))
@@ -166,7 +171,7 @@ module WebFunction
         raise WebFunction::BadRequestError.new(message, code: code, details: details)
       end
 
-      result
+      Page.wrap(result, request: self)
     end
   end
 end

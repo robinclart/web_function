@@ -6,6 +6,7 @@ require "uri"
 
 require_relative "web_function/version"
 require_relative "web_function/request"
+require_relative "web_function/page"
 require_relative "web_function/client"
 require_relative "web_function/flaggable"
 require_relative "web_function/package"
